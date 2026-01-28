@@ -1,0 +1,151 @@
+#include <Adafruit_GFX.h>    
+#include <Adafruit_ST7735.h> 
+#include <SPI.h>             
+
+#define TFT_CS     5
+#define TFT_RST    10 
+#define TFT_DC     4
+#define TFT_SCLK   3
+#define TFT_MOSI   2
+#define TFT_BLK    1  
+#define BTN_PLAY   7   
+#define BUZZER     0   
+
+#define MAU_O_DO    0xF00A 
+#define MAU_O_XANH  0x0699 
+
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+GFXcanvas16 canvas(160, 100); 
+
+float viTri = 0;        
+float tocDo = 0;        
+float giamToc = 0.967;   
+int trangThai = 0;      
+unsigned long thoiGianTrangThai = 0;
+
+const int oWidth = 28;  
+const int oHeight = 40; 
+const int boGoc = 7;    
+int oCu = 0; 
+
+// --- LỊCH SỬ 5 Ô ---
+uint16_t lichSu[5] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}; 
+void themLichSu(uint16_t mauMoi) {
+  for (int i = 4; i > 0; i--) { lichSu[i] = lichSu[i - 1]; }
+  lichSu[0] = mauMoi; 
+}
+
+void setup() {
+  pinMode(BTN_PLAY, INPUT_PULLUP);
+  pinMode(BUZZER, OUTPUT); 
+  digitalWrite(BUZZER, LOW); 
+  pinMode(TFT_BLK, OUTPUT);
+  digitalWrite(TFT_BLK, HIGH);
+  SPI.begin(TFT_SCLK, -1, TFT_MOSI, TFT_CS); 
+  tft.initR(INITR_GREENTAB); 
+  tft.invertDisplay(true); 
+  tft.setRotation(3); 
+  tft.fillScreen(ST7735_WHITE); 
+  randomSeed(analogRead(0));
+}
+
+void veManHinh() {
+  canvas.fillScreen(ST7735_WHITE);
+  canvas.setTextSize(2); 
+  canvas.setTextColor(ST7735_BLACK); 
+  canvas.setCursor(15, 13); 
+  canvas.print("DOUBLE ROLL");
+
+  int oTrungTam = (int)(viTri / oWidth);
+  for (int i = -4; i < 7; i++) {
+    int idHienTai = oTrungTam + i;
+    float xPos = 80.0 - (oWidth / 2.0) + (idHienTai * oWidth) - viTri;
+    int mauIndex = abs(idHienTai) % 10;
+    uint16_t mau = (mauIndex == 0) ? MAU_O_XANH : ((mauIndex % 2 == 0) ? MAU_O_DO : ST7735_BLACK);
+    canvas.fillRoundRect((int)xPos, 40, oWidth - 6, oHeight, boGoc, mau);
+  }
+
+  for (int i = 0; i < 5; i++) {
+    if (lichSu[i] != 0xFFFF) {
+      canvas.fillRoundRect(4 + (i * 26), 85, 22, 12, 3, lichSu[i]);
+    }
+  }
+
+  int khungX = 80 - (oWidth / 2);
+  canvas.drawRoundRect(khungX - 5, 37, oWidth + 4, oHeight + 6, boGoc + 2, ST7735_BLUE);
+  canvas.drawRoundRect(khungX - 4, 38, oWidth + 2, oHeight + 4, boGoc + 1, ST7735_BLUE);
+
+  tft.drawRGBBitmap(0, 14, canvas.getBuffer(), 160, 100);
+}
+
+// --- HÀM PHÁT NHẠC DÁNG EM VỪA PHẢI ---
+void amThanhChucMung() {
+  // Định nghĩa tần số
+  int C5=523, D5=587, E5=659, F5=698, G5=784, A5=880, B5=988;
+  int C6=1047, D6=1175, E6=1319;
+
+  // Dãy nốt bạn cung cấp
+  int giaiDieu[] = {
+    C6, A5, G5, G5, G5, G5, G5, F5, A5, E5, E5, E5, E5, C5, D5, D5, D5,
+    B5, D6, D6, D6, D6, D6, D6, C6, D6, E5, D6, D6, D6, C6, A5, A5, A5, A5, A5, A5, G5, A5, G5,
+    C6, A5, G5, G5, G5, G5, G5, F5, A5, C6, A5, D6, D6, D6, D6, E5, C5, D5,
+    C6, A5, G5, G5, G5, G5, G5, F5, A5, E5, E5, E5, E5, E5, E5, C5, D5, D5, C5, D5, F5, E5
+  };
+
+  int doDai = sizeof(giaiDieu) / sizeof(giaiDieu[0]);
+  int tocDoNot = 200; // Tốc độ vừa phải (ms)
+
+  for (int i = 0; i < doDai; i++) {
+    if (giaiDieu[i] == 0) {
+      noTone(BUZZER);
+    } else {
+      tone(BUZZER, giaiDieu[i]);
+    }
+    delay(tocDoNot);
+    noTone(BUZZER);
+    delay(40); // Nghỉ giữa các nốt một chút để nghe rõ tiếng
+  }
+}
+
+void loop() {
+  unsigned long now = millis();
+  if (trangThai == 0 && digitalRead(BTN_PLAY) == LOW) {
+    delay(50); 
+    if (digitalRead(BTN_PLAY) == LOW) {
+       tone(BUZZER, 2700, 100); 
+       trangThai = 1; tocDo = 0.5; 
+    }
+  }
+  if (trangThai == 1) { 
+    tocDo += 0.1; 
+    if (tocDo >= 9.0) { tocDo = 9.0; trangThai = 2; thoiGianTrangThai = now; }
+  } 
+  else if (trangThai == 2) { 
+    if (now - thoiGianTrangThai > 2000) {
+      int soOChayThem = random(50, 80); 
+      float viTriDich = round((viTri + soOChayThem * oWidth) / oWidth) * oWidth;
+      tocDo = (viTriDich - viTri) * (1.0 - giamToc);
+      trangThai = 3;
+    }
+  } 
+  else if (trangThai == 3) { 
+    tocDo *= giamToc; 
+    if (tocDo < 0.05) {
+      tocDo = 0; trangThai = 0; 
+      viTri = round(viTri / oWidth) * oWidth; 
+      int idTrung = (int)(viTri / oWidth);
+      int indexMau = abs(idTrung) % 10;
+      uint16_t mauTrung = (indexMau == 0) ? MAU_O_XANH : ((indexMau % 2 == 0) ? MAU_O_DO : ST7735_BLACK);
+      themLichSu(mauTrung);
+      veManHinh(); 
+      amThanhChucMung(); 
+    }
+  }
+  viTri += tocDo;
+  int oHienTai = (int)((viTri + (oWidth / 2)) / oWidth);
+  if (oHienTai != oCu && tocDo > 0.1) {
+    tone(BUZZER, 1800, 8); oCu = oHienTai;
+  }
+  veManHinh();
+  delay(10); 
+}
