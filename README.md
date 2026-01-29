@@ -6,4 +6,5 @@ vòng quay may mắn esp 32 c3 super mini và màn hình ST7735
 
 Cách đấu nối:
 
-<img width="1060" height="673" alt="image" src="https://github.com/user-attachments/assets/fb8e5e30-2ca0-48b0-b7d0-20fe79eb95d0" />
+
+<img width="772" height="895" alt="image" src="https://github.com/user-attachments/assets/e69b3868-2b95-4c40-86a3-37aab1b1708d" />
